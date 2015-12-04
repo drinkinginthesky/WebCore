@@ -1,6 +1,7 @@
 # encoding: utf-8
 
 from mimetypes import init, add_type
+from collections import deque
 from webob import Request, Response
 
 from ...core.response import registry
@@ -50,7 +51,7 @@ class BaseExtension(object):
 
 		context.environ['web.base'] = context.request.script_name
 		
-		context.request.remainder = context.request.path_info.split('/')
+		context.request.remainder = deque(context.request.path_info.split('/'))
 
 		context.url = URLGenerator(context)
 		context.path = []
@@ -65,12 +66,15 @@ class BaseExtension(object):
 		request = context.request
 		context.log.debug("Handling dispatch.", extra=dict(consumed=consumed, handler=handler, endpoint=is_endpoint))
 		
-		for element in consumed:
-			if element == context.request.path_info_peek():
-				context.request.path_info_pop()
+		if consumed:
+			for element in consumed:
+				if element == context.request.path_info_peek():
+					context.request.path_info_pop()
+					request.remainder.popleft()
+				else:
+					break
 		
 		context.path.append((handler, request.script_name))
-		request.remainder = request.remainder[len(consumed):]
-
+		
 		if not is_endpoint:
 			context.environ['web.controller'] = str(context.request.script_name)

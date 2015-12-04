@@ -175,7 +175,9 @@ class Application(object):
 		
 		handler = context.root
 		exc = None
+		ext = None
 		is_endpoint = False
+		request = context.request
 		
 		try:
 			while not is_endpoint:
@@ -195,9 +197,12 @@ class Application(object):
 					if router_name:  # Update the entry point cache, too. Have some singleton.
 						self.dialect_cache[router_name] = router
 				
-				for consumed, handler, is_endpoint in router(context, handler):
+				for consumed, handler, is_endpoint in router(context, handler, request.remainder):
 					for ext in signals.dispatch:
 						ext(context, consumed, handler, is_endpoint)  # Logging would be especially bad in these.
+				else:
+					if ext is None:
+						raise HTTPNotFound("No endpoint found.")
 		
 		except HTTPException as e:
 			return e(context.request.environ, start_response)
@@ -212,8 +217,6 @@ class Application(object):
 			# Then if the callable is a bound instance method.
 			#  If not call with the context as an argument.
 			# Otherwise call.
-			
-			request = context.request
 			
 			if callable(handler):
 				args = list(request.remainder)
